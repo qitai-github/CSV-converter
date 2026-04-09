@@ -329,10 +329,12 @@
                 try {
                     if (ext === 'xlsx') {
                         const workbook = XLSX.read(e.target.result, { type: 'array' });
-                        // Try to find CB庫存 sheet first, otherwise use first sheet
-                        let sheetName = workbook.SheetNames.find(n =>
-                            n.includes('CB庫存') || n.includes('部位') || n.includes('庫存')
-                        ) || workbook.SheetNames[0];
+                        // 僅讀取 CB庫存 工作表
+                        let sheetName = workbook.SheetNames.find(n => n.includes('CB庫存'));
+                        if (!sheetName) {
+                            showError('找不到「CB庫存」工作表，請確認檔案是否正確');
+                            return;
+                        }
                         const sheet = workbook.Sheets[sheetName];
                         parsedData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
                     } else {
