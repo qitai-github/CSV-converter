@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CB 轉檔工具</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Microsoft JhengHei', 'Segoe UI', sans-serif;
+            background: #f0f2f5;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+        }
+        h1 {
+            color: #1a1a2e;
+            margin-bottom: 8px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 32px;
+            font-size: 14px;
+        }
+        .container {
+            width: 100%;
+            max-width: 800px;
+        }
+        .upload-area {
+            border: 2px dashed #b0b8c8;
+            border-radius: 12px;
+            padding: 48px 24px;
+            text-align: center;
+            background: #fff;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 24px;
+        }
+        .upload-area:hover, .upload-area.dragover {
+            border-color: #4a6cf7;
+            background: #f0f4ff;
+        }
+        .upload-area .icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+        .upload-area p {
+            color: #555;
+            font-size: 16px;
+        }
+        .upload-area .hint {
+            color: #999;
+            font-size: 13px;
+            margin-top: 8px;
+        }
+        input[type="file"] { display: none; }
+
+        .file-type-section {
+            background: #fff;
+            border-radius: 12px;
+            padding: 20px 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            display: none;
+        }
+        .file-type-section.show { display: block; }
+        .file-type-section h3 {
+            margin-bottom: 12px;
+            color: #333;
+            font-size: 16px;
+        }
+        .radio-group {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        .radio-group label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+        .radio-group label:hover {
+            border-color: #4a6cf7;
+        }
+        .radio-group input:checked + span {
+            color: #4a6cf7;
+            font-weight: 600;
+        }
+        .radio-group label:has(input:checked) {
+            border-color: #4a6cf7;
+            background: #f0f4ff;
+        }
+
+        .result-section {
+            background: #fff;
+            border-radius: 12px;
+            padding: 20px 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            display: none;
+        }
+        .result-section.show { display: block; }
+        .result-section h3 {
+            margin-bottom: 4px;
+            color: #333;
+        }
+        .result-info {
+            color: #888;
+            font-size: 13px;
+            margin-bottom: 12px;
+        }
+        .preview-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+        .preview-table th {
+            background: #f5f6fa;
+            padding: 8px 12px;
+            text-align: left;
+            border-bottom: 2px solid #e0e0e0;
+            color: #555;
+        }
+        .preview-table td {
+            padding: 8px 12px;
+            border-bottom: 1px solid #eee;
+            color: #333;
+        }
+        .preview-table tr:hover td {
+            background: #fafbff;
+        }
+        .original-code {
+            color: #999;
+            font-size: 12px;
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 12px 28px;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: #4a6cf7;
+            color: #fff;
+        }
+        .btn-primary:hover {
+            background: #3a5ce5;
+        }
+        .btn-secondary {
+            background: #e8ecf1;
+            color: #555;
+        }
+        .btn-secondary:hover {
+            background: #d8dce5;
+        }
+        .btn-group {
+            display: flex;
+            gap: 12px;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .badge-auto {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        .badge-manual {
+            background: #fff3e0;
+            color: #e65100;
+        }
+        .error-msg {
+            color: #d32f2f;
+            background: #ffeef0;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            display: none;
+            font-size: 14px;
+        }
+        .error-msg.show { display: block; }
+    </style>
+</head>
+<body>
+    <h1>CB 轉檔工具</h1>
+    <p class="subtitle">將 PSC_CBAS部位表 / CB篩選結果 轉換為股票代碼清單 (.csv)</p>
+
+    <div class="container">
+        <div class="upload-area" id="uploadArea">
+            <div class="icon">📂</div>
+            <p>點擊或拖曳檔案至此處</p>
+            <p class="hint">支援 .xlsx / .csv 格式</p>
+            <input type="file" id="fileInput" accept=".xlsx,.csv">
+        </div>
+
+        <div class="error-msg" id="errorMsg"></div>
+
+        <div class="file-type-section" id="typeSection">
+            <h3>📋 檔案類型 <span class="status-badge" id="detectBadge"></span></h3>
+            <div class="radio-group">
+                <label>
+                    <input type="radio" name="fileType" value="psc_cbas">
+                    <span>PSC_CBAS部位表</span>
+                </label>
+                <label>
+                    <input type="radio" name="fileType" value="cb_filter">
+                    <span>CB篩選結果</span>
+                </label>
+            </div>
+        </div>
+
+        <div class="result-section" id="resultSection">
+            <h3>轉換結果</h3>
+            <p class="result-info" id="resultInfo"></p>
+            <table class="preview-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>原始代碼</th>
+                        <th>轉換結果</th>
+                    </tr>
+                </thead>
+                <tbody id="previewBody"></tbody>
+            </table>
+            <div class="btn-group">
+                <button class="btn btn-primary" id="downloadBtn">⬇ 下載 CSV</button>
+                <button class="btn btn-secondary" id="resetBtn">重新上傳</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const typeSection = document.getElementById('typeSection');
+        const resultSection = document.getElementById('resultSection');
+        const previewBody = document.getElementById('previewBody');
+        const resultInfo = document.getElementById('resultInfo');
+        const detectBadge = document.getElementById('detectBadge');
+        const errorMsg = document.getElementById('errorMsg');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const resetBtn = document.getElementById('resetBtn');
+
+        let currentFileName = '';
+        let parsedData = [];
+        let convertedData = [];
+
+        // Upload area events
+        uploadArea.addEventListener('click', () => fileInput.click());
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            if (e.dataTransfer.files.length > 0) {
+                handleFile(e.dataTransfer.files[0]);
+            }
+        });
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        // File type radio change
+        document.querySelectorAll('input[name="fileType"]').forEach(radio => {
+            radio.addEventListener('change', () => {
+                processData();
+            });
+        });
+
+        // Download
+        downloadBtn.addEventListener('click', downloadCSV);
+
+        // Reset
+        resetBtn.addEventListener('click', () => {
+            fileInput.value = '';
+            typeSection.classList.remove('show');
+            resultSection.classList.remove('show');
+            errorMsg.classList.remove('show');
+            parsedData = [];
+            convertedData = [];
+            currentFileName = '';
+        });
+
+        function showError(msg) {
+            errorMsg.textContent = msg;
+            errorMsg.classList.add('show');
+        }
+
+        function handleFile(file) {
+            errorMsg.classList.remove('show');
+            resultSection.classList.remove('show');
+            currentFileName = file.name;
+
+            const ext = file.name.split('.').pop().toLowerCase();
+            if (!['xlsx', 'csv'].includes(ext)) {
+                showError('不支援的檔案格式，請上傳 .xlsx 或 .csv 檔案');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    if (ext === 'xlsx') {
+                        const workbook = XLSX.read(e.target.result, { type: 'array' });
+                        // Try to find CB庫存 sheet first, otherwise use first sheet
+                        let sheetName = workbook.SheetNames.find(n =>
+                            n.includes('CB庫存') || n.includes('部位') || n.includes('庫存')
+                        ) || workbook.SheetNames[0];
+                        const sheet = workbook.Sheets[sheetName];
+                        parsedData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+                    } else {
+                        const text = new TextDecoder('utf-8').decode(e.target.result);
+                        parsedData = parseCSV(text);
+                    }
+
+                    // Auto-detect file type
+                    const detectedType = detectFileType(file.name, parsedData);
+                    typeSection.classList.add('show');
+
+                    if (detectedType) {
+                        document.querySelector(`input[name="fileType"][value="${detectedType}"]`).checked = true;
+                        detectBadge.textContent = '自動偵測';
+                        detectBadge.className = 'status-badge badge-auto';
+                    } else {
+                        detectBadge.textContent = '請手動選擇';
+                        detectBadge.className = 'status-badge badge-manual';
+                    }
+
+                    if (detectedType) {
+                        processData();
+                    }
+                } catch (err) {
+                    showError('檔案解析失敗：' + err.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function parseCSV(text) {
+            return text.split(/\r?\n/).map(line => {
+                // Simple CSV parse (handles commas in fields)
+                const result = [];
+                let current = '';
+                let inQuotes = false;
+                for (let i = 0; i < line.length; i++) {
+                    if (inQuotes) {
+                        if (line[i] === '"' && line[i + 1] === '"') {
+                            current += '"';
+                            i++;
+                        } else if (line[i] === '"') {
+                            inQuotes = false;
+                        } else {
+                            current += line[i];
+                        }
+                    } else {
+                        if (line[i] === '"') {
+                            inQuotes = true;
+                        } else if (line[i] === ',') {
+                            result.push(current.trim());
+                            current = '';
+                        } else {
+                            current += line[i];
+                        }
+                    }
+                }
+                result.push(current.trim());
+                return result;
+            });
+        }
+
+        function detectFileType(fileName, data) {
+            const name = fileName.toLowerCase();
+            if (name.includes('psc') || name.includes('cbas') || name.includes('部位表')) {
+                return 'psc_cbas';
+            }
+            if (name.includes('cb篩選') || name.includes('篩選結果')) {
+                return 'cb_filter';
+            }
+
+            // Try to detect from header
+            if (data.length > 0) {
+                const header = (data[0] || []).map(h => String(h || ''));
+                if (header.some(h => h.includes('CB代碼')) && header.some(h => h.includes('CB名稱'))) {
+                    // Check if first data column is CB代碼 (5+ digit codes)
+                    if (header[0] && header[0].includes('CB代碼')) {
+                        return 'psc_cbas';
+                    }
+                }
+                if (header[0] === '代碼' || (header.some(h => h === '代碼') && header.some(h => h === '名稱'))) {
+                    return 'cb_filter';
+                }
+            }
+            return null;
+        }
+
+        function processData() {
+            const fileType = document.querySelector('input[name="fileType"]:checked')?.value;
+            if (!fileType || parsedData.length === 0) return;
+
+            convertedData = [];
+            const rows = parsedData;
+
+            if (fileType === 'psc_cbas') {
+                // PSC_CBAS部位表: CB代碼 in first column, take first 4 chars + ".TW"
+                // Skip header row, skip empty/summary rows
+                let startRow = 0;
+                // Check if first row is header
+                if (rows.length > 0) {
+                    const firstCell = String(rows[0][0] || '');
+                    if (isNaN(firstCell) || firstCell === '' || firstCell.includes('CB') || firstCell.includes('代碼')) {
+                        startRow = 1;
+                    }
+                }
+
+                for (let i = startRow; i < rows.length; i++) {
+                    const row = rows[i];
+                    if (!row || !row[0]) continue;
+                    const code = String(row[0]).trim();
+                    if (!code || isNaN(code)) continue; // Skip non-numeric (summary rows like 轉計)
+
+                    const stockCode = code.substring(0, 4);
+                    if (stockCode.length === 4 && !isNaN(stockCode)) {
+                        convertedData.push({
+                            original: code,
+                            converted: stockCode + '.TW'
+                        });
+                    }
+                }
+            } else if (fileType === 'cb_filter') {
+                // CB篩選結果: 代碼 in first column, append ".TW"
+                let startRow = 0;
+                if (rows.length > 0) {
+                    const firstCell = String(rows[0][0] || '');
+                    if (isNaN(firstCell) || firstCell === '' || firstCell.includes('代碼')) {
+                        startRow = 1;
+                    }
+                }
+
+                for (let i = startRow; i < rows.length; i++) {
+                    const row = rows[i];
+                    if (!row || !row[0]) continue;
+                    const code = String(row[0]).trim();
+                    if (!code || isNaN(code)) continue;
+
+                    convertedData.push({
+                        original: code,
+                        converted: code + '.TW'
+                    });
+                }
+            }
+
+            // Remove duplicates
+            const seen = new Set();
+            convertedData = convertedData.filter(item => {
+                if (seen.has(item.converted)) return false;
+                seen.add(item.converted);
+                return true;
+            });
+
+            renderResult();
+        }
+
+        function renderResult() {
+            previewBody.innerHTML = '';
+            convertedData.forEach((item, idx) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${idx + 1}</td>
+                    <td><span class="original-code">${item.original}</span></td>
+                    <td><strong>${item.converted}</strong></td>
+                `;
+                previewBody.appendChild(tr);
+            });
+
+            resultInfo.textContent = `共 ${convertedData.length} 筆股票代碼`;
+            resultSection.classList.add('show');
+        }
+
+        function downloadCSV() {
+            if (convertedData.length === 0) return;
+
+            const csvContent = convertedData.map(item => item.converted).join('\n') + '\n';
+            const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+
+            // Generate output filename: add _轉檔 before extension, change to .csv
+            let outputName = currentFileName;
+            const dotIdx = outputName.lastIndexOf('.');
+            if (dotIdx > 0) {
+                outputName = outputName.substring(0, dotIdx) + '_轉檔.csv';
+            } else {
+                outputName = outputName + '_轉檔.csv';
+            }
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = outputName;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
